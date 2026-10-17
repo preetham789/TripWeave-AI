@@ -1,68 +1,89 @@
 # TripMate AI
 
-> An AI-powered travel planning application that transforms a simple trip request into flight intelligence, hotel research, and a practical day-by-day itinerary.
+> A multi-agent travel planning web application that converts a natural-language request into live flight-status context, hotel research, and an actionable itinerary.
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-1C3C3C)](https://langchain-ai.github.io/langgraph/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![LangGraph](https://img.shields.io/badge/Workflow-LangGraph-1C3C3C)](https://langchain-ai.github.io/langgraph/)
+[![License](https://img.shields.io/badge/License-MIT-22C55E.svg)](LICENSE)
 
-TripMate AI is a full-stack, multi-agent travel planner built with FastAPI and LangGraph. It coordinates specialized agents to retrieve live flight-status information, research hotel options, and synthesize the results into a clear, budget-aware travel plan.
+TripMate AI is a FastAPI application built around a LangGraph workflow. It coordinates purpose-built agents to interpret a trip request, collect available flight-status data and hotel research, create a budget-aware itinerary, and return a structured travel recommendation in a polished web interface.
 
-## Highlights
+## Contents
 
-- **Natural-language planning** — accepts requests such as “Plan a 7-day Japan trip from India under 2 lakhs.”
-- **Multi-agent workflow** — dedicated flight, hotel, itinerary, and response-generation agents work in sequence.
-- **Live travel research** — integrates AviationStack for flight status and Tavily for hotel discovery.
-- **Persistent conversations** — stores LangGraph checkpoints in PostgreSQL and supports reusable thread IDs.
-- **Browser and API access** — includes a responsive Jinja2 frontend and a documented JSON API.
+- [Key capabilities](#key-capabilities)
+- [How it works](#how-it-works)
+- [Technology](#technology)
+- [Getting started](#getting-started)
+- [Configuration](#configuration)
+- [Run with Docker](#run-with-docker)
+- [API reference](#api-reference)
+- [Project structure](#project-structure)
+- [Important limitations](#important-limitations)
+- [License](#license)
 
-> **Note:** AviationStack provides operational flight and schedule data, not fare pricing. Verify all availability, prices, visas, and bookings with the relevant provider before travelling.
+## Key capabilities
 
-## Architecture
+- **Natural-language trip planning** — handles requests that include a destination, origin, duration, budget, or preferred activities.
+- **Agent workflow** — sequential flight, hotel, itinerary, and final-response agents produce one cohesive result.
+- **Flight route recognition** — resolves common cities, countries, aliases, and IATA codes to query AviationStack.
+- **Hotel research** — uses Tavily search results as context for accommodation suggestions.
+- **Persistent workflow state** — uses PostgreSQL-backed LangGraph checkpoints, with a thread ID retained in the browser's local storage.
+- **Useful delivery UI** — renders Markdown responses, supports copy-to-clipboard, and can export the displayed plan as a PDF.
+- **Container-ready** — includes a Dockerfile for consistent deployment.
+
+## How it works
 
 ```text
-User / Web UI
-      │
-      ▼
- FastAPI  ── POST /api/travel
-      │
-      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     LangGraph workflow                       │
-│                                                             │
-│  Flight Agent → Hotel Agent → Itinerary Agent → Final Agent │
-└─────────────────────────────────────────────────────────────┘
-      │              │                    │
-      ▼              ▼                    ▼
-AviationStack      Tavily                Groq
-      │
-      ▼
+Browser UI
+    │  POST /api/travel
+    ▼
+FastAPI application
+    │
+    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                         LangGraph workflow                          │
+│                                                                    │
+│  Flight Agent → Hotel Agent → Itinerary Agent → Final Response     │
+└────────────────────────────────────────────────────────────────────┘
+    │                 │                         │
+    ▼                 ▼                         ▼
+AviationStack       Tavily                      Groq
+    │
+    ▼
 PostgreSQL checkpoint store
 ```
 
+1. The user submits a travel request in the web interface or through the API.
+2. The flight agent extracts a route when possible and retrieves live flight/status data from AviationStack.
+3. The hotel agent searches Tavily for accommodation-related research relevant to the request.
+4. The itinerary agent combines the request and research into a practical itinerary.
+5. The final-response agent formats the plan into trip summary, flight, hotel, itinerary, budget, and recommendation sections.
+
 ## Technology
 
-| Area | Tools |
+| Layer | Implementation |
 | --- | --- |
-| API and server | FastAPI, Uvicorn, Pydantic |
-| Agent orchestration | LangGraph, LangChain |
-| AI model | Groq |
-| Data sources | AviationStack, Tavily |
-| State persistence | PostgreSQL, Psycopg, LangGraph Postgres Saver |
-| Frontend | Jinja2, HTML, CSS, JavaScript |
+| Web application | FastAPI, Uvicorn, Jinja2, Pydantic |
+| Agent orchestration | LangGraph and LangChain |
+| Language model | Groq via `langchain-groq` |
+| Flight data | AviationStack |
+| Hotel research | Tavily |
+| Persistence | PostgreSQL, Psycopg, LangGraph Postgres Saver |
+| Client experience | HTML, CSS, JavaScript, Marked, html2pdf.js |
+| Packaging | Docker |
 
 ## Getting started
 
 ### Prerequisites
 
-- Python 3.10 or later
-- A PostgreSQL database reachable from your environment
+- Python 3.11 or later
+- A PostgreSQL database that is reachable from the application
 - API keys for [Groq](https://console.groq.com/), [Tavily](https://tavily.com/), and [AviationStack](https://aviationstack.com/)
 
 ### Installation
 
-1. Clone the repository and enter the project directory.
+1. Clone the repository and open the project directory.
 
    ```powershell
    git clone <repository-url>
@@ -76,40 +97,70 @@ PostgreSQL checkpoint store
    .\.venv\Scripts\Activate.ps1
    ```
 
-3. Install the dependencies.
+3. Install the required packages.
 
    ```powershell
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the project root.
+4. Create a `.env` file in the project root using the configuration below.
 
-   ```env
-   GROQ_API_KEY=your_groq_api_key
-   TAVILY_API_KEY=your_tavily_api_key
-   AVIATIONSTACK_API_KEY=your_aviationstack_api_key
-   DATABASE_URL=postgresql://username:password@host:5432/database
+5. Start the development server.
 
-   # Optional configuration
-   GROQ_MODEL=openai/gpt-oss-120b
-   DEFAULT_ORIGIN_IATA=DAC
+   ```powershell
+   uvicorn app:app --reload
    ```
 
-   The application automatically appends `sslmode=require` to `DATABASE_URL` when it is not already present.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The health check is available at [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health).
 
-### Run the application
+## Configuration
 
-```powershell
-uvicorn app:app --reload
+Create a `.env` file alongside `app.py`. Never commit this file; it is already covered by `.gitignore`.
+
+```env
+# Required
+GROQ_API_KEY=your_groq_api_key
+TAVILY_API_KEY=your_tavily_api_key
+AVIATIONSTACK_API_KEY=your_aviationstack_api_key
+DATABASE_URL=postgresql://username:password@host:5432/database
+
+# Optional
+GROQ_MODEL=openai/gpt-oss-120b
+DEFAULT_ORIGIN_IATA=DAC
 ```
 
-Visit [http://127.0.0.1:8000](http://127.0.0.1:8000) to use the web application. Confirm the service is available at [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health).
+| Variable | Required | Description |
+| --- | --- | --- |
+| `GROQ_API_KEY` | Yes | Credential used to generate the itinerary and final answer. |
+| `TAVILY_API_KEY` | Yes | Credential used for hotel-related web research. |
+| `AVIATIONSTACK_API_KEY` | Yes | Credential used for live flight/status requests. |
+| `DATABASE_URL` | Yes | PostgreSQL URL used by the LangGraph checkpointer. |
+| `GROQ_MODEL` | No | Groq model identifier; defaults to `openai/gpt-oss-120b`. |
+| `DEFAULT_ORIGIN_IATA` | No | Origin airport for destination-only requests; defaults to `DAC` (Dhaka). |
+
+If `DATABASE_URL` does not already include an SSL mode, the application adds `sslmode=require` before connecting.
+
+## Run with Docker
+
+Build the image from the project root:
+
+```powershell
+docker build -t tripmate-ai .
+```
+
+Run the container using the local environment file:
+
+```powershell
+docker run --rm --env-file .env -p 8000:8000 tripmate-ai
+```
+
+The container serves the application on `0.0.0.0:8000`. Your database must be externally reachable from the container.
 
 ## API reference
 
 ### `POST /api/travel`
 
-Creates a travel plan from a natural-language request.
+Generates a travel plan from a natural-language request.
 
 **Request body**
 
@@ -122,26 +173,34 @@ Creates a travel plan from a natural-language request.
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `message` | string | Yes | The travel requirement or question. |
-| `thread_id` | string | No | An existing ID used to continue a saved LangGraph conversation. |
+| `message` | string | Yes | The trip request. Empty messages return `400 Bad Request`. |
+| `thread_id` | string | No | Identifier for the graph checkpoint. One is generated when omitted. |
 
-**Successful response**
+**Example response**
 
 ```json
 {
   "success": true,
   "thread_id": "user_abc123",
-  "answer": "...",
-  "flight_results": "...",
-  "hotel_results": "...",
-  "itinerary": "...",
+  "answer": "## Trip Summary\n...",
+  "flight_results": "Live flights from DEL to NRT\n...",
+  "hotel_results": "1. **Example hotel**\n...",
+  "itinerary": "Day 1: ...",
   "llm_calls": 4
 }
 ```
 
+| Response field | Description |
+| --- | --- |
+| `answer` | Formatted Markdown travel recommendation displayed by the frontend. |
+| `flight_results` | Raw, formatted flight lookup context returned by the flight agent. |
+| `hotel_results` | Raw, formatted hotel research returned by the hotel agent. |
+| `itinerary` | Intermediate itinerary produced before final formatting. |
+| `llm_calls` | Workflow counter; the current graph increments it once per agent. |
+
 ### `GET /health`
 
-Returns a simple service-health response.
+Returns a lightweight service status response:
 
 ```json
 {
@@ -150,45 +209,42 @@ Returns a simple service-health response.
 }
 ```
 
-## Project structure
-
-```text
-TripWeave-AI/
-├── app.py                  # FastAPI application, frontend, and API routes
-├── backend.py              # LangGraph definition and PostgreSQL checkpointing
-├── requirements.txt        # Python dependencies
-├── test.py                 # Interactive command-line smoke test
-├── static/
-│   ├── script.js           # Frontend behavior
-│   └── style.css           # Frontend styles
-├── templates/
-│   └── index.html          # Main web interface
-└── tools/
-    ├── flight_tool.py      # Route parsing and AviationStack integration
-    └── tavily_tool.py      # Tavily hotel-research integration
-```
-
 ## Local smoke test
 
-Once environment variables are configured, run:
+After configuring the environment, run the interactive script:
 
 ```powershell
 python test.py
 ```
 
-Enter a travel request when prompted. The script exercises the same workflow, API providers, and PostgreSQL checkpointer used by the web application.
+Enter a trip request when prompted. This directly invokes the same LangGraph workflow used by the API and therefore requires working credentials and PostgreSQL access.
 
-## Environment variables
+## Project structure
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `GROQ_API_KEY` | Yes | Authenticates requests to the Groq model API. |
-| `TAVILY_API_KEY` | Yes | Enables hotel and destination research. |
-| `AVIATIONSTACK_API_KEY` | Yes | Enables live flight-status lookups. |
-| `DATABASE_URL` | Yes | PostgreSQL connection string for LangGraph checkpoints. |
-| `GROQ_MODEL` | No | Groq model name; defaults to `openai/gpt-oss-120b`. |
-| `DEFAULT_ORIGIN_IATA` | No | Default departure airport for destination-only queries; defaults to `DAC`. |
+```text
+TripWeave-AI/
+├── app.py                  # FastAPI application, routes, static files, templates
+├── backend.py              # Graph state, agents, Groq client, PostgreSQL checkpointer
+├── Dockerfile              # Production container definition
+├── requirements.txt        # Pinned Python dependencies
+├── test.py                 # Interactive workflow smoke test
+├── static/
+│   ├── script.js           # API client, thread ID persistence, copy and PDF export
+│   └── style.css           # Responsive web interface styling
+├── templates/
+│   └── index.html          # Single-page frontend shell
+└── tools/
+    ├── flight_tool.py      # Location parsing and AviationStack integration
+    └── tavily_tool.py      # Tavily search integration
+```
+
+## Important limitations
+
+- **This is not a booking engine.** The application does not make reservations or process payments.
+- **Flight results are operational data.** AviationStack data may contain schedules, status, gates, terminals, and delays; it does not provide ticket prices.
+- **Travel guidance is generated content.** Prices, availability, visa rules, local regulations, safety advice, and opening hours should be verified through official or provider sources before travel.
+- **External services are required.** A missing or invalid Groq key prevents the application from starting; unavailable Tavily, AviationStack, or PostgreSQL services can cause planning requests to fail.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Copyright © 2026 Preetham P. Distributed under the [MIT License](LICENSE).
